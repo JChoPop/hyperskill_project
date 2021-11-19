@@ -1,0 +1,110 @@
+// By HJC
+//Kotlin Compiler version 1.3.11
+
+//
+// Build list of key times in minutes from midnight or zero, where each value of dailyBounds = first and last value of this list
+// Subtract key times in chunks of two to find available blocks in int, and delete both values if result < meetingDuration
+    // Blocks will default start from first() of dailyBounds to first() of first of schedule, between schedules,
+    //     and from last() of last schedule to last() of dailyBounds
+// Compare the first keytimes of each calendar and start with the later one,
+    // use iterator to find next keytime of both calendars and find earlier one
+        // If from the same calendar, it should already be more than meetingDuration and the two values can be saved on a new list;
+        // If the other calendar, then check against meetingDuration and decide whether to save or not
+// Whichever calendar was used for the ending time should be iterated to check for the next starting time
+    // If the next starting time
+// Repeat until one fo the ending times used is one of dailyBounds values,
+    // OR 
+        
+// Thought 2
+
+// Flattened lists should be combined into one sorted list with some for of key/label to keep track of which calendar
+//      and whether it is start/end --> even/odd indexed from the original flat list (not the new combined one)
+// even/odd will "turn on/off" a recording function/switch that adds to the list of potential meeting times
+//
+val calendar1 = listOf(listOf("9:00", "10:30"), listOf("12:00", "13:00"), listOf("16:00", "18:00"))
+val dailyBounds1 = listOf("9:00", "20:00")
+val calendar2 = listOf(listOf("10:00", "11:30"), listOf("12:30", "14:30"), listOf("14:30", "15:00"), listOf("16:00", "17:00"))
+val dailyBounds2 = listOf("10:00", "18:30")
+val duration = 30
+//
+// output should be [["11:30", "12:00"], ["15:00", "16:00"], ["18:00", "18:30"]]
+//
+fun main() {
+// Method 1    
+    val flatOne = flatAvail(calendar1, dailyBounds1, duration)
+    val flatTwo = flatAvail(calendar2, dailyBounds2, duration)
+	val sortedTimes = interweave(flatOne, flatTwo)
+    val potentialTimes = potentiate(flatOne, flatTwo, sortedTimes)
+    println("flatOne = $flatOne" + '\n' + "flatTwo = $flatTwo")
+    println("sortedTimes = ${sortedTimes}" + '\n' + potentialTimes)
+}
+//
+fun flatAvail(cal: List<List<String>>, bounds: List<String>, duration: Int): List<Int> {
+// find blocks of time by chunks of two and exclude if less than duration
+    val pyung = bounds.toMutableList().apply { this.addAll(1, cal.flatten()) }
+//     println(pyung)
+    // convert to Int -> min from 00:00
+    val allTimesInt = mutableListOf<Int>()
+    for (time in 0..pyung.lastIndex) {
+        allTimesInt.add(time, pyung[time].takeWhile() {it != ':'}.toInt() * 60 + pyung[time].takeLast(2).toInt())
+    }
+//     println(allTimesInt)
+    val napjak = allTimesInt.chunked(2).filter() { it.last() - it.first() >= duration }
+	return napjak.flatten()
+}
+//
+fun interweave(flatOne: List<Int>, flatTwo: List<Int>): List<Int> {
+//     val firstFlat = mutableListOf<IndexedTime>()
+//     flatOne.forEachIndexed { ind, time -> firstFlat.add(IndexedTime(1, ind, time)) }
+// 	val secondFlat = mutableListOf<IndexedTime>()
+//     flatTwo.forEachIndexed { ind, time -> secondFlat.add(IndexedTime(2, ind, time)) }
+    
+    val combinedFlats = listOf(flatOne, flatTwo).flatten().toSet()
+	return combinedFlats.sorted()
+}
+//
+fun toggle(light: Boolean) = when (light) {true -> false; false -> true}
+//
+fun potentiate(flatOne: List<Int>, flatTwo:List<Int>, sortedTimes: List<Int>): MutableList<List<String>> {
+    val (one, two) = listOf("one", "two") 
+    val switch = mutableMapOf(one to false, two to false)
+    val aand = mutableListOf<Boolean>()
+    for (keytime in sortedTimes) {
+        if (flatOne.contains(keytime)) switch[one] = toggle(switch[one]!!)
+        if (flatTwo.contains(keytime)) switch[two] = toggle(switch[two]!!)
+        aand.add(switch.values.all { it })
+//         println(switch)
+    }
+    
+    val poten = mutableListOf<List<String>>()
+    for (ind in 0..sortedTimes.lastIndex) {
+        if (aand[ind] == true && aand[ind + 1] == false) {
+            val start = listOf((sortedTimes[ind] / 60).toString(),
+                               ":",
+                               if (sortedTimes[ind] % 60 == 0) "00" else (sortedTimes[ind] % 60).toString()
+                              ).joinToString("")
+			val stop = listOf((sortedTimes[ind+1] / 60).toString(),
+                              ":",
+                              if (sortedTimes[ind] % 60 == 0) "00" else (sortedTimes[ind] % 60).toString()
+                             ).joinToString("")
+            poten.add(listOf(start, stop))
+    		
+        }
+    }
+    return poten
+    
+}
+//
+// flatOne = [630, 720, 780, 960, 1020, 1200]
+// flatTwo = [690, 750, 900, 960, 1020, 1110]
+// 
+//sortedTimes = [630, 690, 720, 750, 780, 900, 960, 1020, 1110, 1200]
+//	binaryOne = [  1,   1,   0,   0,   1,   1,   0,    1,    1,    0]
+//	binaryTwo = [  0,   1,   1,   0,   0,   1,   0,    1,    0,    0]
+//				[off,  on, off, off, off,  on, off,   on,  off,  off]
+// using on/off with and logic
+// 	[]
+
+
+
+//
