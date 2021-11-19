@@ -1,0 +1,70 @@
+// By HJC
+//
+val calendar1 = listOf(listOf("9:00", "10:30"), listOf("12:00", "13:00"), listOf("16:00", "18:00"))
+val dailyBounds1 = listOf("9:00", "20:00")
+val calendar2 = listOf(listOf("10:00", "11:30"), listOf("12:30", "14:30"), listOf("14:30", "15:00"), listOf("16:00", "17:00"))
+val dailyBounds2 = listOf("10:00", "18:30")
+val duration = 30
+//
+// output should be [["11:30", "12:00"], ["15:00", "16:00"], ["18:00", "18:30"]]
+//
+fun main() {
+	println("$dailyBounds1 + $calendar1")
+    println("$dailyBounds2 + $calendar2")
+    val calOneMin = hrs2Min(calendar1.flatten()).chunked(2) { it.toMutableList() }.toMutableList()
+    val calTwoMin = hrs2Min(calendar2.flatten()).chunked(2) { it.toMutableList() }.toMutableList()
+    val (boundsOneMin, boundsTwoMin) = listOf( hrs2Min(dailyBounds1), hrs2Min(dailyBounds2) )
+    println("calOneMin: $calOneMin + $boundsOneMin")
+    println("calTwoMin: $calTwoMin + $boundsTwoMin" + '\n')
+    
+    val combinedCal = interweave(calOneMin, calTwoMin, boundsOneMin, boundsTwoMin)
+    println("$combinedCal" + '\n')
+    
+    val avails = simplify(combinedCal)
+    println("$avails" + '\n')
+    
+    val answer = min2Hrs(avails)
+    println("Final Output = $answer")
+}
+// convert String -> Int in form of min from 00:00
+fun hrs2Min(hrs: List<String>): MutableList<Int> {
+	val allInt = mutableListOf<Int>()
+    for (entry in hrs) { allInt.add(entry.takeWhile() { it != ':' }.toInt() * 60 + entry.takeLast(2).toInt()) }
+    return allInt
+}
+//
+fun interweave(calOneMin: MutableList<MutableList<Int>>,
+               calTwoMin: MutableList<MutableList<Int>>,
+               boundsOneMin: MutableList<Int>,
+               boundsTwoMin: MutableList<Int>): MutableList<MutableList<Int>> {
+    val combinedFlats = mutableListOf(calOneMin, calTwoMin).flatten().toMutableList()
+    combinedFlats.add(0, mutableListOf(0, maxOf(boundsOneMin.first(), boundsTwoMin.first())))
+    combinedFlats.add(mutableListOf(minOf(boundsOneMin.last(), boundsTwoMin.last()), 1440) )	// 24*60=1440
+    return combinedFlats.sortedBy() { it.first() }.toMutableList()
+}
+//
+fun simplify(combinedCal: MutableList<MutableList<Int>>): MutableList<MutableList<Int>> {
+	var tempBlocks = combinedCal
+    val avBlocks = mutableListOf<MutableList<Int>>()
+    repeat(combinedCal.lastIndex) {
+        var (left, right) = tempBlocks.slice(0..1)
+    	if (right.first() - left.last() >= duration) avBlocks.add(mutableListOf(left.last(), right.first()))
+        tempBlocks[0][1] = maxOf(left.last(), right.last())
+        tempBlocks.removeAt(1)
+    }
+    return avBlocks
+    //[ [a,b], [c,d], ...]
+    // c - b >= duration			->	add [b, c] to avBlocks;
+    // 									replace [a,b], [c,d] with [a,d]	->	replace [a,b] with [a,maxOf(b,d)], then delete [c,d]
+    // b > d						->	replace [a,b], [c,d] with [a,b] ->	replace [a,b] with [a,maxOf(b,d)], then delete [c,d]
+    // else b in (c-duration+1)..d	->	replace [a,b], [c,d] with [a,d]	->	replace [a,b] with [a,maxOf(b,d)], then delete [c,d]
+}
+//
+fun min2Hrs(avails: MutableList<MutableList<Int>>): List<List<String>> {
+    val poten = mutableListOf<String>()
+    for (time in avails.flatten()) {
+        poten.add( listOf( (time / 60).toString(), ":", if (time % 60 == 0) "00" else (time % 60).toString() ).joinToString("") )
+    }
+    return poten.chunked(2)
+}
+//
