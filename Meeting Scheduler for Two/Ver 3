@@ -1,0 +1,91 @@
+// By HJC
+
+// Same logic as 2.0 while trying to avoid mutations
+
+///
+val calOne = listOf(listOf("9:00", "10:30"), listOf("12:00", "13:00"), listOf("16:00", "18:00"))
+val bounds1 = listOf("9:00", "20:00")
+val calTwo = listOf(listOf("10:00", "11:30"), listOf("12:30", "14:30"), listOf("14:30", "15:00"), listOf("16:00", "17:00"))
+val bounds2 = listOf("10:00", "18:30")
+val duration = 30
+//
+// output should be [["11:30", "12:00"], ["15:00", "16:00"], ["18:00", "18:30"]]
+//
+fun main() {
+	println("Person 1: $bounds1 + $calOne")
+    println("Person 2: $bounds2 + $calTwo")
+    
+    val combinedCal = interweave(calOne, bounds1, calTwo, bounds2)	// mergesort into one calendar of unavailabilities
+    println("combinedCal:\n$combinedCal" + '\n')
+    
+    val avails = simplify(combinedCal)
+    println("Output: $avails")
+}
+//
+fun interweave(calOne: List<List<String>>, bounds1: List<String>,
+               calTwo: List<List<String>>, bounds2: List<String>,
+              ): List<List<String>> {
+    val combinedCal = mutableListOf<List<String>>()
+    combinedCal.add( listOf("0:00", lateOf(bounds1[0], bounds2[0])) )
+    var (pointOne, pointTwo) = listOf(0, 0)
+    val (lastOne, lastTwo) = listOf(calOne.lastIndex, calTwo.lastIndex)
+    
+    while (!(pointOne == (lastOne + 1) && pointTwo == (lastTwo + 1))) {
+        val (first, second) = listOf(if (pointOne <= lastOne) calOne[pointOne] else listOf("25:00", ""),
+                                     if (pointTwo <= lastTwo) calTwo[pointTwo] else listOf("25:00", "")
+                                    )
+        when (earlyOf(first[0], second[0])) {
+            first[0] -> { combinedCal.add(first); if (pointOne <= lastOne) pointOne += 1 }
+            else -> 	{ combinedCal.add(second); if (pointTwo <= lastTwo) pointTwo += 1 }
+        }
+	}
+    combinedCal.add( listOf(earlyOf(bounds1[1], bounds2[1]), "24:00") )
+    return combinedCal.toList()
+}
+//
+fun lateOf(these: String, those: String): String{
+    val (hr1, min1) = listOf(these.takeWhile() { it != ':' }.toInt(), these.takeLast(2).toInt())
+    val (hr2, min2) = listOf(those.takeWhile() { it != ':' }.toInt(), those.takeLast(2).toInt())
+    return if (hr1 * 60 + min1 > hr2 * 60 + min2) these else those
+}
+//
+fun earlyOf(these: String, those: String): String{
+    val (hr1, min1) = listOf(these.takeWhile() { it != ':' }.toInt(), these.takeLast(2).toInt())
+    val (hr2, min2) = listOf(those.takeWhile() { it != ':' }.toInt(), those.takeLast(2).toInt())
+    return if (hr1 * 60 + min1 < hr2 * 60 + min2) these else those
+}
+//
+fun simplify(combinedCal: List<List<String>>): List<List<String>> {
+	var tempBlocks = mutableListOf<MutableList<String>>()
+    combinedCal.forEach { tempBlocks.add(it.toMutableList()) }
+    
+    val avBlocks = mutableListOf<List<String>>()
+    repeat(combinedCal.lastIndex) {
+        var (ab, cd) = tempBlocks.slice(0..1)		// still in string
+        var (left, right) = listOf(str2Int(ab), str2Int(cd))	// converted to Int
+        
+    	if (right.first() - left.last() >= duration) avBlocks.add(listOf(ab.last(), cd.first()))
+        tempBlocks[0][1] = lateOf(ab.last(), cd.last())
+        tempBlocks.removeAt(1)
+        
+        println(tempBlocks)
+    }
+    return avBlocks.toList()
+}
+//
+fun str2Int(str: List<String>): List<Int> {
+    val poten = mutableListOf<Int>()
+    str.forEach { poten.add(it.takeWhile() { it != ':' }.toInt() * 60 + it.takeLast(2).toInt()) }
+    return poten.toList()
+}
+//
+//
+////[ [a,b], [c,d], ...]
+// c - b >= duration			->	add [b, c] to avBlocks;
+// 									replace [a,b], [c,d] with [a,d]	->	replace [a,b] with [a,maxOf(b,d)], then delete [c,d]
+// b > d						->	replace [a,b], [c,d] with [a,b] ->	replace [a,b] with [a,maxOf(b,d)], then delete [c,d]
+// else b in (c-duration+1)..d	->	replace [a,b], [c,d] with [a,d]	->	replace [a,b] with [a,maxOf(b,d)], then delete [c,d]
+//
+//
+//
+//
